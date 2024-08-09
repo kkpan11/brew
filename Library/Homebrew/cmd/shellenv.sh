@@ -1,13 +1,4 @@
-#:  * `shellenv [bash|csh|fish|pwsh|sh|tcsh|zsh]`
-#:
-#:  Print export statements. When run in a shell, this installation of Homebrew will be added to your `PATH`, `MANPATH`, and `INFOPATH`.
-#:
-#:  The variables `HOMEBREW_PREFIX`, `HOMEBREW_CELLAR` and `HOMEBREW_REPOSITORY` are also exported to avoid querying them multiple times.
-#:  To help guarantee idempotence, this command produces no output when Homebrew's `bin` and `sbin` directories are first and second
-#:  respectively in your `PATH`. Consider adding evaluation of this command's output to your dotfiles (e.g. `~/.bash_profile` or
-#:  `~/.zprofile` on macOS and `~/.bashrc` or `~/.zshrc` on Linux) with: `eval "$(brew shellenv)"`
-#:
-#:  The shell can be specified explicitly with a supported shell name parameter. Unknown shells will output POSIX exports.
+# Documentation defined in Library/Homebrew/cmd/shellenv.rb
 
 # HOMEBREW_CELLAR and HOMEBREW_PREFIX are set by extend/ENV/super.rb
 # HOMEBREW_REPOSITORY is set by bin/brew
@@ -41,8 +32,8 @@ homebrew-shellenv() {
       echo "setenv HOMEBREW_CELLAR ${HOMEBREW_CELLAR};"
       echo "setenv HOMEBREW_REPOSITORY ${HOMEBREW_REPOSITORY};"
       echo "setenv PATH ${HOMEBREW_PREFIX}/bin:${HOMEBREW_PREFIX}/sbin:\$PATH;"
-      echo "if ( \${?MANPATH} == 1 ) setenv MANPATH :\${MANPATH};"
-      echo "setenv INFOPATH ${HOMEBREW_PREFIX}/share/info\`if ( \${?INFOPATH} == 1 ) echo \":\${INFOPATH}\"\`;"
+      echo "test \${?MANPATH} -eq 1 && setenv MANPATH :\${MANPATH};"
+      echo "setenv INFOPATH ${HOMEBREW_PREFIX}/share/info\`test \${?INFOPATH} -eq 1 && echo :\${INFOPATH}\`;"
       ;;
     pwsh | -pwsh | pwsh-preview | -pwsh-preview)
       echo "[System.Environment]::SetEnvironmentVariable('HOMEBREW_PREFIX','${HOMEBREW_PREFIX}',[System.EnvironmentVariableTarget]::Process)"

@@ -7,7 +7,6 @@ require "livecheck/livecheck_version"
 require "livecheck/skip_conditions"
 require "livecheck/strategy"
 require "addressable"
-require "uri"
 
 module Homebrew
   # The {Livecheck} module consists of methods used by the `brew livecheck`
@@ -270,7 +269,7 @@ module Homebrew
         # comparison.
         current = if formula
           if formula.head_only?
-            formula.any_installed_version.version.commit
+            Version.new(formula.any_installed_version.version.commit)
           else
             T.must(formula.stable).version
           end
@@ -282,7 +281,7 @@ module Homebrew
         current = LivecheckVersion.create(formula_or_cask, current)
 
         latest = if formula&.head_only?
-          T.must(formula.head).downloader.fetch_last_commit
+          Version.new(T.must(formula.head).downloader.fetch_last_commit)
         else
           version_info = latest_version(
             formula_or_cask,
@@ -409,7 +408,10 @@ module Homebrew
           name += " (cask)" if ambiguous_casks.include?(formula_or_cask)
 
           onoe "#{Tty.blue}#{name}#{Tty.reset}: #{e}"
-          $stderr.puts Utils::Backtrace.clean(e) if debug && !e.is_a?(Livecheck::Error)
+          if debug && !e.is_a?(Livecheck::Error)
+            require "utils/backtrace"
+            $stderr.puts Utils::Backtrace.clean(e)
+          end
           print_resources_info(resource_version_info, verbose:) if check_for_resources
           nil
         end
@@ -713,7 +715,6 @@ module Homebrew
         strategies = Strategy.from_url(
           url,
           livecheck_strategy:,
-          url_provided:       livecheck_url.present?,
           regex_provided:     livecheck_regex.present?,
           block_provided:     livecheck_strategy_block.present?,
         )
@@ -928,7 +929,6 @@ module Homebrew
         strategies = Strategy.from_url(
           url,
           livecheck_strategy:,
-          url_provided:       livecheck_url.present?,
           regex_provided:     livecheck_regex.present?,
           block_provided:     livecheck_strategy_block.present?,
         )
@@ -1056,7 +1056,10 @@ module Homebrew
           status_hash(resource, "error", [e.to_s], verbose:)
         elsif !quiet
           onoe "#{Tty.blue}#{resource.name}#{Tty.reset}: #{e}"
-          $stderr.puts Utils::Backtrace.clean(e) if debug && !e.is_a?(Livecheck::Error)
+          if debug && !e.is_a?(Livecheck::Error)
+            require "utils/backtrace"
+            $stderr.puts Utils::Backtrace.clean(e)
+          end
           nil
         end
       end

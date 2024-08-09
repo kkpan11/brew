@@ -1034,7 +1034,12 @@ on_request: installed_on_request?, options:)
       ofail "An unexpected error occurred during the `brew link` step"
       puts "The formula built, but is not symlinked into #{HOMEBREW_PREFIX}"
       puts e
-      puts Utils::Backtrace.clean(e) if debug?
+
+      if debug?
+        require "utils/backtrace"
+        puts Utils::Backtrace.clean(e)
+      end
+
       @show_summary_heading = true
       ignore_interrupts do
         keg.unlink
@@ -1080,6 +1085,8 @@ on_request: installed_on_request?, options:)
   rescue Exception => e # rubocop:disable Lint/RescueException
     puts e
     ofail "Failed to install service files"
+
+    require "utils/backtrace"
     odebug e, Utils::Backtrace.clean(e)
   end
 
@@ -1090,7 +1097,10 @@ on_request: installed_on_request?, options:)
     ofail "Failed to fix install linkage"
     puts "The formula built, but you may encounter issues using it or linking other"
     puts "formulae against it."
+
+    require "utils/backtrace"
     odebug e, Utils::Backtrace.clean(e)
+
     @show_summary_heading = true
   end
 
@@ -1101,7 +1111,10 @@ on_request: installed_on_request?, options:)
   rescue Exception => e # rubocop:disable Lint/RescueException
     opoo "The cleaning step did not complete successfully"
     puts "Still, the installation was successful, so we will link it into your prefix."
+
+    require "utils/backtrace"
     odebug e, Utils::Backtrace.clean(e)
+
     Homebrew.failed = true
     @show_summary_heading = true
   end
@@ -1171,7 +1184,10 @@ on_request: installed_on_request?, options:)
     opoo "The post-install step did not complete successfully"
     puts "You can try again using:"
     puts "  brew postinstall #{formula.full_name}"
+
+    require "utils/backtrace"
     odebug e, Utils::Backtrace.clean(e), always_display: Homebrew::EnvConfig.developer?
+
     Homebrew.failed = true
     @show_summary_heading = true
   end
@@ -1224,8 +1240,6 @@ on_request: installed_on_request?, options:)
   def fetch
     return if previously_fetched_formula
 
-    SBOM.fetch_schema! if Homebrew::EnvConfig.developer?
-
     fetch_dependencies
 
     return if only_deps?
@@ -1268,6 +1282,22 @@ on_request: installed_on_request?, options:)
       ohai "Verifying attestation for #{formula.name}"
       begin
         Homebrew::Attestation.check_core_attestation formula.bottle
+      rescue Homebrew::Attestation::GhAuthInvalid
+        # Only raise an error if we explicitly opted-in to verification.
+        raise CannotInstallFormulaError, <<~EOS if Homebrew::EnvConfig.verify_attestations?
+          The bottle for #{formula.name} could not be verified.
+
+          This typically indicates an invalid GitHub API token.
+
+          If you have `HOMEBREW_GITHUB_API_TOKEN` set, check it is correct
+          or unset it and instead run:
+
+            gh auth login
+        EOS
+
+        # If we didn't explicitly opt-in, then quietly opt-out in the case of invalid credentials.
+        # Based on user reports, a significant number of users are running with stale tokens.
+        ENV["HOMEBREW_NO_VERIFY_ATTESTATIONS"] = "1"
       rescue Homebrew::Attestation::GhAuthNeeded
         raise CannotInstallFormulaError, <<~EOS
           The bottle for #{formula.name} could not be verified.
@@ -1278,7 +1308,7 @@ on_request: installed_on_request?, options:)
 
             gh auth login
         EOS
-      rescue Homebrew::Attestation::InvalidAttestationError => e
+      rescue Homebrew::Attestation::MissingAttestationError, Homebrew::Attestation::InvalidAttestationError => e
         raise CannotInstallFormulaError, <<~EOS
           The bottle for #{formula.name} has an invalid build provenance attestation.
 

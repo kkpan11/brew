@@ -1,8 +1,4 @@
-#:  * `--repository`, `--repo` [<tap> ...]
-#:
-#:  Display where Homebrew's Git repository is located.
-#:
-#:  If <user>`/`<repo> are provided, display where tap <user>`/`<repo>'s directory is located.
+# Documentation defined in Library/Homebrew/cmd/--repository.rb
 
 # HOMEBREW_REPOSITORY, HOMEBREW_LIBRARY are set by brew.sh
 # shellcheck disable=SC2154
@@ -12,6 +8,11 @@ tap_path() {
   local user
   local repo
   local part
+
+  if [[ "${tap}" != *"/"* ]]
+  then
+    odie "Invalid tap name: ${tap}"
+  fi
 
   user="$(echo "${tap%%/*}" | tr '[:upper:]' '[:lower:]')"
   repo="$(echo "${tap#*/}" | tr '[:upper:]' '[:lower:]')"
@@ -24,7 +25,7 @@ tap_path() {
     fi
   done
 
-  repo="${repo#(home|linux)brew-}"
+  repo="${repo#@(home|linux)brew-}"
   echo "${HOMEBREW_LIBRARY}/Taps/${user}/homebrew-${repo}"
 }
 
@@ -37,8 +38,11 @@ homebrew---repository() {
     return
   fi
 
-  for tap in "$@"
-  do
-    tap_path "${tap}"
-  done
+  (
+    shopt -s extglob
+    for tap in "$@"
+    do
+      tap_path "${tap}"
+    done
+  )
 }

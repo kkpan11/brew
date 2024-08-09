@@ -112,7 +112,11 @@ module Utils
         options_array = command_instance.args.options_only.to_a.compact
 
         # Strip out any flag values to reduce cardinality and preserve privacy.
-        options_array.map! { |option| option.sub(/=.*/, "=") }
+        options_array.map! { |option| option.sub(/=.*/m, "=") }
+
+        # Strip out --with-* and --without-* options
+        options_array.reject! { |option| option.match(/^--with(out)?-/) }
+
         options = options_array.sort.uniq.join(" ")
 
         # Tags must have low cardinality.
@@ -303,7 +307,7 @@ module Utils
 
           last_thirty_days_downloads = last_thirty_days_match.captures.first.tr(",", "")
           thirty_day_download_count += if (millions_match = last_thirty_days_downloads.match(/(\d+\.\d+)M/).presence)
-            millions_match.captures.first.to_i * 1_000_000
+            millions_match.captures.first.to_f * 1_000_000
           else
             last_thirty_days_downloads.to_i
           end

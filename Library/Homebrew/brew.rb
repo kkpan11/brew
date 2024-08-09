@@ -87,6 +87,7 @@ begin
   if internal_cmd || Commands.external_ruby_v2_cmd_path(cmd)
     cmd = T.must(cmd)
     cmd_class = Homebrew::AbstractCommand.command(cmd)
+    Homebrew.running_command = cmd
     if cmd_class
       command_instance = cmd_class.new
 
@@ -97,6 +98,7 @@ begin
       Homebrew.public_send Commands.method_name(cmd)
     end
   elsif (path = Commands.external_ruby_cmd_path(cmd))
+    Homebrew.running_command = cmd
     require?(path)
     exit Homebrew.failed? ? 1 : 0
   elsif Commands.external_cmd_path(cmd)
@@ -147,8 +149,10 @@ rescue UsageError => e
   Homebrew::Help.help cmd, remaining_args: args&.remaining, usage_error: e.message
 rescue SystemExit => e
   onoe "Kernel.exit" if args&.debug? && !e.success?
-  require "utils/backtrace"
-  $stderr.puts Utils::Backtrace.clean(e) if args&.debug? || ARGV.include?("--debug")
+  if args&.debug? || ARGV.include?("--debug")
+    require "utils/backtrace"
+    $stderr.puts Utils::Backtrace.clean(e)
+  end
   raise
 rescue Interrupt
   $stderr.puts # seemingly a newline is typical
@@ -185,8 +189,10 @@ rescue RuntimeError, SystemCallError => e
   raise if e.message.empty?
 
   onoe e
-  require "utils/backtrace"
-  $stderr.puts Utils::Backtrace.clean(e) if args&.debug? || ARGV.include?("--debug")
+  if args&.debug? || ARGV.include?("--debug")
+    require "utils/backtrace"
+    $stderr.puts Utils::Backtrace.clean(e)
+  end
 
   exit 1
 rescue Exception => e # rubocop:disable Lint/RescueException

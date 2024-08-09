@@ -110,8 +110,26 @@ module Homebrew
     def auto_update_command?
       ENV.fetch("HOMEBREW_AUTO_UPDATE_COMMAND", false).present?
     end
+
+    sig { params(cmd: T.nilable(String)).void }
+    def running_command=(cmd)
+      @running_command_with_args = "#{cmd} #{ARGV.join(" ")}"
+    end
+
+    sig { returns String }
+    def running_command_with_args
+      "brew #{@running_command_with_args}".strip
+    end
   end
 end
+
+require "PATH"
+ENV["HOMEBREW_PATH"] ||= ENV.fetch("PATH")
+ORIGINAL_PATHS = PATH.new(ENV.fetch("HOMEBREW_PATH")).filter_map do |p|
+  Pathname.new(p).expand_path
+rescue
+  nil
+end.freeze
 
 require "extend/blank"
 require "extend/kernel"
@@ -124,14 +142,6 @@ require "extend/string"
 require "extend/pathname"
 
 require "exceptions"
-
-require "PATH"
-ENV["HOMEBREW_PATH"] ||= ENV.fetch("PATH")
-ORIGINAL_PATHS = PATH.new(ENV.fetch("HOMEBREW_PATH")).filter_map do |p|
-  Pathname.new(p).expand_path
-rescue
-  nil
-end.freeze
 
 require "tap_constants"
 require "official_taps"

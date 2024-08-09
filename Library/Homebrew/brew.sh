@@ -166,7 +166,7 @@ case "$@" in
     homebrew-list "$@" && exit 0
     ;;
   # falls back to cmd/help.rb on a non-zero return
-  help | "")
+  help | --help | -h | --usage | "-?" | "")
     homebrew-help "$@" && exit 0
     ;;
 esac
@@ -294,7 +294,7 @@ auto-update() {
     for repo_fetch_head in "${repo_fetch_heads[@]}"
     do
       if [[ ! -f "${repo_fetch_head}" ]] ||
-         [[ -z "$(find "${repo_fetch_head}" -type f -mtime -"${HOMEBREW_AUTO_UPDATE_SECS}"s 2>/dev/null)" ]]
+         [[ -z "$(find "${repo_fetch_head}" -type f -newermt "-${HOMEBREW_AUTO_UPDATE_SECS} seconds" 2>/dev/null)" ]]
       then
         needs_auto_update=1
         break
@@ -886,6 +886,7 @@ fi
 export HOMEBREW_CORE_GIT_REMOTE
 
 # Set HOMEBREW_DEVELOPER_COMMAND if the command being run is a developer command
+unset HOMEBREW_DEVELOPER_COMMAND
 if [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.sh" ]] ||
    [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.rb" ]]
 then
