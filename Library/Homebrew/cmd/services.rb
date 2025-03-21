@@ -32,7 +32,7 @@ module Homebrew
           [`sudo`] `brew services info` (<formula>|`--all`|`--json`):
           List all managed services for the current user (or root).
 
-          [`sudo`] `brew services run` (<formula>|`--all`):
+          [`sudo`] `brew services run` (<formula>|`--all`|`--file=`):
           Run the service <formula> without registering to launch at login (or boot).
 
           [`sudo`] `brew services start` (<formula>|`--all`|`--file=`):
@@ -58,7 +58,7 @@ module Homebrew
         switch "--json", description: "Output as JSON."
         switch "--no-wait", description: "Don't wait for `stop` to finish stopping the service."
         conflicts "--max-wait=", "--no-wait"
-        named_args max: 2
+        named_args
       end
 
       sig { override.void }
@@ -93,26 +93,31 @@ module Homebrew
         end
 
         # Parse arguments.
-        subcommand, formula, = args.named
+        subcommand, *formulae = args.named
 
         no_named_formula_commands = [
           *Homebrew::Services::Commands::List::TRIGGERS,
           *Homebrew::Services::Commands::Cleanup::TRIGGERS,
         ]
         if no_named_formula_commands.include?(subcommand)
-          raise UsageError, "The `#{subcommand}` subcommand does not accept a formula argument!" if formula
+          raise UsageError, "The `#{subcommand}` subcommand does not accept a formula argument!" if formulae.present?
           raise UsageError, "The `#{subcommand}` subcommand does not accept the --all argument!" if args.all?
         end
 
         if args.file
-          if Homebrew::Services::Commands::Start::TRIGGERS.exclude?(subcommand)
+          file_commands = [
+            *Homebrew::Services::Commands::Start::TRIGGERS,
+            *Homebrew::Services::Commands::Run::TRIGGERS,
+          ]
+          if file_commands.exclude?(subcommand)
             raise UsageError, "The `#{subcommand}` subcommand does not accept the --file= argument!"
           elsif args.all?
-            raise UsageError, "The start subcommand does not accept the --all and --file= arguments at the same time!"
+            raise UsageError,
+                  "The `#{subcommand}` subcommand does not accept the --all and --file= arguments at the same time!"
           end
         end
 
-        opoo "The --all argument overrides provided formula argument!" if formula.present? && args.all?
+        opoo "The --all argument overrides provided formula argument!" if formulae.present? && args.all?
 
         targets = if args.all?
           if subcommand == "start"
@@ -128,8 +133,8 @@ module Homebrew
           else
             Homebrew::Services::Formulae.available_services
           end
-        elsif formula
-          [Homebrew::Services::FormulaWrapper.new(Formulary.factory(formula))]
+        elsif formulae.present?
+          formulae.map { |formula| Homebrew::Services::FormulaWrapper.new(Formulary.factory(formula)) }
         else
           []
         end
@@ -153,7 +158,7 @@ module Homebrew
         when *Homebrew::Services::Commands::Restart::TRIGGERS
           Homebrew::Services::Commands::Restart.run(targets, verbose: args.verbose?)
         when *Homebrew::Services::Commands::Run::TRIGGERS
-          Homebrew::Services::Commands::Run.run(targets, verbose: args.verbose?)
+          Homebrew::Services::Commands::Run.run(targets, args.file, verbose: args.verbose?)
         when *Homebrew::Services::Commands::Start::TRIGGERS
           Homebrew::Services::Commands::Start.run(targets, args.file, verbose: args.verbose?)
         when *Homebrew::Services::Commands::Stop::TRIGGERS
